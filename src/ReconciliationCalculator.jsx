@@ -13,6 +13,7 @@ export default function ReconciliationCalculator() {
     // ledger data
     workingPeriod: 30, 
     totalRecordsLedgerCount: 5000,
+    totalRecordsMatchedLedgerCount:3000,
     totalOutstandingLedgerCount: 250,
     totalLedgerMatchedValue: 4750000000,
     totalLedgerUnmatchedValue: 250000000,
@@ -26,6 +27,7 @@ export default function ReconciliationCalculator() {
     const {
       workingPeriod,
       totalRecordsLedgerCount,
+      totalRecordsMatchedLedgerCount,
       totalOutstandingLedgerCount,
       totalLedgerMatchedValue,
       totalLedgerUnmatchedValue,
@@ -87,6 +89,7 @@ export default function ReconciliationCalculator() {
       RAR, UVR, RVI, AMER, FTIS,
       FEI, CoRT,
       totalRecordsLedgerCount,
+      totalRecordsMatchedLedgerCount,
       totalOutstandingLedgerCount,
       matchedRecordsCount,
       totalLedgerValue,
@@ -185,6 +188,19 @@ export default function ReconciliationCalculator() {
               />
             </div>
             
+             <div className="input-group">
+              <label>
+                <FileText size={16} />
+                Total Records Matched Ledger Count
+              </label>
+              <input
+                type="number"
+                value={config.totalRecordsMatchedLedgerCount}
+                onChange={(e) => setConfig({...config, totalRecordsMatchedLedgerCount: parseFloat(e.target.value) || 0})}
+                placeholder="Total processed ledger records"
+              />
+            </div>
+
             <div className="input-group">
               <label>
                 <AlertCircle size={16} />
