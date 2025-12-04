@@ -1,113 +1,119 @@
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, AlertCircle, TrendingUp, DollarSign, Clock, Shield, Zap, BarChart3, Target } from 'lucide-react';
+import { 
+  CheckCircle, XCircle, AlertCircle, TrendingUp, DollarSign, 
+  Clock, Shield, Zap, BarChart3, Target, Calendar, Database, 
+  PieChart, FileText, BookOpen, Percent, Layers, ChevronDown, ChevronUp 
+} from 'lucide-react';
 import './ReconciliationCalculator.css';
 
 export default function ReconciliationCalculator() {
-  const [datasetA, setDatasetA] = useState('');
-  const [datasetB, setDatasetB] = useState('');
   const [results, setResults] = useState(null);
+  const [showStatementFields, setShowStatementFields] = useState(false);
   const [config, setConfig] = useState({
-    monthlyTurnover: 10000000000,
-    reconciliationCost: 30000000,
-    avgResolutionDays: 5,
-    staffCount: 8
+    // ledger data
+    workingPeriod: 30, 
+    totalRecordsLedgerCount: 5000,
+    totalOutstandingLedgerCount: 250,
+    totalLedgerMatchedValue: 4750000000,
+    totalLedgerUnmatchedValue: 250000000,
+    
+    // Statement data (not very necessary)
+    totalStatementCount: 0,
+    totalStatementValue: 0
   });
 
-  const parseData = (text) => {
-    return text
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .map(line => {
-        const parts = line.split(/[,\t]/);
-        return {
-          id: parts[0]?.trim() || '',
-          amount: parseFloat(parts[1]?.trim().replace(/[^\d.-]/g, '')) || 0,
-          raw: line
-        };
-      })
-      .filter(item => item.id);
-  };
+  const calculateKPIs = () => {
+    const {
+      workingPeriod,
+      totalRecordsLedgerCount,
+      totalOutstandingLedgerCount,
+      totalLedgerMatchedValue,
+      totalLedgerUnmatchedValue,
+      totalStatementCount,
+      totalStatementValue
+    } = config;
 
-  const calculateKPIs = (matched, onlyInA, onlyInB, discrepancies) => {
-    const totalTransactions = matched.length + onlyInA.length + onlyInB.length + discrepancies.length;
-    const totalValueA = [...matched, ...onlyInA, ...discrepancies].reduce((sum, item) => 
-      sum + (item.amount || item.amountA || 0), 0);
-    const totalValueB = [...matched, ...onlyInB, ...discrepancies].reduce((sum, item) => 
-      sum + (item.amount || item.amountB || 0), 0);
-    const matchedValue = matched.reduce((sum, item) => sum + item.amount, 0);
-    const unmatchedValue = [...onlyInA, ...onlyInB].reduce((sum, item) => sum + item.amount, 0) +
-      discrepancies.reduce((sum, item) => sum + Math.abs(item.difference), 0);
-
-    const RAR = totalValueA > 0 ? (matchedValue / totalValueA) * 100 : 0;
-    const UVR = totalValueA > 0 ? (unmatchedValue / totalValueA) * 100 : 0;
-    const RVI = totalTransactions > 0 ? (matched.length / totalTransactions) * 100 : 0;
-    const RCR = totalTransactions > 0 ? (matched.length / totalTransactions) * 100 : 0;
-    const FEI = config.monthlyTurnover > 0 ? (unmatchedValue / config.monthlyTurnover) * 100 : 0;
-    const AMER = totalTransactions > 0 ? (matched.length / totalTransactions) * 100 : 0;
-    const CoRT = totalTransactions > 0 ? config.reconciliationCost / totalTransactions : 0;
-    const FTIS = (RAR * 0.4) + (AMER * 0.3) + ((100 - UVR) * 0.2) + (RVI * 0.1);
-
-    const potentialRecovery = unmatchedValue;
-    const annualRecovery = potentialRecovery * 12;
-    const staffSavings = config.reconciliationCost * 0.7;
+    // calculations
+    const totalLedgerValue = totalLedgerMatchedValue + totalLedgerUnmatchedValue;
+    const matchedRecordsCount = totalRecordsLedgerCount - totalOutstandingLedgerCount;
+    
+    // FTIS KPIs
+    const RAR = totalLedgerValue > 0 ? (totalLedgerMatchedValue / totalLedgerValue) * 100 : 0;
+    const UVR = totalLedgerValue > 0 ? (totalLedgerUnmatchedValue / totalLedgerValue) * 100 : 0;
+    const RVI = totalRecordsLedgerCount > 0 ? (matchedRecordsCount / totalRecordsLedgerCount) * 100 : 0;
+    const AMER = totalRecordsLedgerCount > 0 ? (matchedRecordsCount / totalRecordsLedgerCount) * 100 : 0;
+    
+    // Statement completeness metrics
+    let statementCoveragePercent = 0;
+    let valueCoveragePercent = 0;
+    let completenessScore = 0;
+    let statementMetricsAvailable = false;
+    
+    if (totalStatementCount > 0 && totalStatementValue > 0) {
+      statementMetricsAvailable = true;
+      statementCoveragePercent = totalRecordsLedgerCount > 0 ? 
+        (totalRecordsLedgerCount / totalStatementCount) * 100 : 0;
+      valueCoveragePercent = totalStatementValue > 0 ? 
+        (totalLedgerValue / totalStatementValue) * 100 : 0;
+      
+      // Calculate completeness score (50% count coverage, 50% value coverage)
+      completenessScore = (statementCoveragePercent * 0.5) + (valueCoveragePercent * 0.5);
+    }
+    
+    // FTIS Calculation (with optional completeness bonus)
+    let FTIS = (RAR * 0.4) + (AMER * 0.3) + ((100 - UVR) * 0.2) + (RVI * 0.1);
+    
+    // If statement metrics available, add completeness component (10% weight)
+    if (statementMetricsAvailable) {
+      FTIS = (FTIS * 0.9) + (completenessScore * 0.1);
+    }
+    
+    // estimated Financial metrics 
+    const avgTransactionValue = totalLedgerValue / totalRecordsLedgerCount;
+    const reconciliationCost = totalRecordsLedgerCount * 1500; // Estimated cost per transaction
+    const monthlyTurnover = (totalLedgerValue / workingPeriod) * 30; // Extrapolate to monthly
+    const FEI = monthlyTurnover > 0 ? (totalLedgerUnmatchedValue / monthlyTurnover) * 100 : 0;
+    const CoRT = totalRecordsLedgerCount > 0 ? reconciliationCost / totalRecordsLedgerCount : 0;
+    
+    // ROI
+    const potentialRecovery = totalLedgerUnmatchedValue * 0.7; // Assume 70% recoverable
+    const annualRecovery = (potentialRecovery / workingPeriod) * 365;
+    const staffSavings = reconciliationCost * 0.7;
     const totalAnnualBenefit = annualRecovery + staffSavings;
     const automationCost = 150000000;
     const ROI = automationCost > 0 ? ((totalAnnualBenefit - automationCost) / automationCost) * 100 : 0;
 
     return {
-      RAR, UVR, RVI, RCR, FEI, AMER, CoRT, FTIS,
-      totalTransactions, totalValueA, totalValueB,
-      matchedValue, unmatchedValue, potentialRecovery,
-      annualRecovery, staffSavings, totalAnnualBenefit, ROI
+      RAR, UVR, RVI, AMER, FTIS,
+      FEI, CoRT,
+      totalRecordsLedgerCount,
+      totalOutstandingLedgerCount,
+      matchedRecordsCount,
+      totalLedgerValue,
+      totalLedgerMatchedValue,
+      totalLedgerUnmatchedValue,
+      avgTransactionValue,
+      reconciliationCost,
+      monthlyTurnover,
+      potentialRecovery,
+      annualRecovery,
+      staffSavings,
+      totalAnnualBenefit,
+      ROI,
+      
+      // statement side 
+      totalStatementCount,
+      totalStatementValue,
+      statementCoveragePercent,
+      valueCoveragePercent,
+      completenessScore,
+      statementMetricsAvailable
     };
   };
 
-  const reconcile = () => {
-    const setA = parseData(datasetA);
-    const setB = parseData(datasetB);
-
-    const mapA = new Map(setA.map(item => [item.id, item]));
-    const mapB = new Map(setB.map(item => [item.id, item]));
-
-    const matched = [];
-    const onlyInA = [];
-    const onlyInB = [];
-    const discrepancies = [];
-
-    setA.forEach(itemA => {
-      if (mapB.has(itemA.id)) {
-        const itemB = mapB.get(itemA.id);
-        if (Math.abs(itemA.amount - itemB.amount) < 0.01) {
-          matched.push({ ...itemA, match: itemB });
-        } else {
-          discrepancies.push({ 
-            id: itemA.id, 
-            amountA: itemA.amount, 
-            amountB: itemB.amount,
-            difference: itemA.amount - itemB.amount
-          });
-        }
-      } else {
-        onlyInA.push(itemA);
-      }
-    });
-
-    setB.forEach(itemB => {
-      if (!mapA.has(itemB.id)) {
-        onlyInB.push(itemB);
-      }
-    });
-
-    const kpis = calculateKPIs(matched, onlyInA, onlyInB, discrepancies);
-
-    setResults({
-      matched,
-      onlyInA,
-      onlyInB,
-      discrepancies,
-      kpis
-    });
+  const generateReport = () => {
+    const kpis = calculateKPIs();
+    setResults({ kpis });
   };
 
   const getHealthClass = (score) => {
@@ -125,6 +131,10 @@ export default function ReconciliationCalculator() {
     }).format(value);
   };
 
+  const formatNumber = (value) => {
+    return new Intl.NumberFormat('en-NG').format(value);
+  };
+
   return (
     <div className="recon-app">
       <div className="recon-container">
@@ -132,84 +142,166 @@ export default function ReconciliationCalculator() {
         <div className="header">
           <div className="header-title">
             <Shield className="header-icon" size={40} />
-            <h1>Reconciliation Intelligence</h1>
+            <h1>Reconciliation Intelligence Dashboard</h1>
           </div>
           <p className="header-subtitle">
-            Strategic KPI Dashboard: Transform reconciliation from bookkeeping to enterprise assurance
+            Real-time KPI monitoring and Reconciliation Health check
           </p>
         </div>
 
-        {/* Configuration Panel */}
         <div className="card config-panel">
           <h3 className="section-title">
-            <Target size={20} />
-            Business Parameters
+            <Database size={20} />
+            Reconciliation Software Data Input
           </h3>
+          <p className="config-description">
+            Input key reconciliation data metrics extracted from CLIREC to calculate real-time KPIs.
+          </p>
+          
           <div className="config-grid">
             <div className="input-group">
-              <label>Monthly Turnover (₦)</label>
+              <label>
+                <Calendar size={16} />
+                Working Period (Days)
+              </label>
               <input
                 type="number"
-                value={config.monthlyTurnover}
-                onChange={(e) => setConfig({...config, monthlyTurnover: parseFloat(e.target.value) || 0})}
+                value={config.workingPeriod}
+                onChange={(e) => setConfig({...config, workingPeriod: parseFloat(e.target.value) || 0})}
+                placeholder="e.g., 30"
               />
             </div>
+            
             <div className="input-group">
-              <label>Monthly Recon Cost (₦)</label>
+              <label>
+                <FileText size={16} />
+                Total Records Ledger Count
+              </label>
               <input
                 type="number"
-                value={config.reconciliationCost}
-                onChange={(e) => setConfig({...config, reconciliationCost: parseFloat(e.target.value) || 0})}
+                value={config.totalRecordsLedgerCount}
+                onChange={(e) => setConfig({...config, totalRecordsLedgerCount: parseFloat(e.target.value) || 0})}
+                placeholder="Total processed records"
               />
             </div>
+            
             <div className="input-group">
-              <label>Avg Resolution Days</label>
+              <label>
+                <AlertCircle size={16} />
+                Total Outstanding Ledger Count
+              </label>
               <input
                 type="number"
-                value={config.avgResolutionDays}
-                onChange={(e) => setConfig({...config, avgResolutionDays: parseFloat(e.target.value) || 0})}
+                value={config.totalOutstandingLedgerCount}
+                onChange={(e) => setConfig({...config, totalOutstandingLedgerCount: parseFloat(e.target.value) || 0})}
+                placeholder="Unmatched records"
               />
             </div>
+            
             <div className="input-group">
-              <label>Recon Staff (FTEs)</label>
+              <label>
+                <CheckCircle size={16} />
+                Total Ledger Matched Value (₦)
+              </label>
               <input
                 type="number"
-                value={config.staffCount}
-                onChange={(e) => setConfig({...config, staffCount: parseFloat(e.target.value) || 0})}
+                value={config.totalLedgerMatchedValue}
+                onChange={(e) => setConfig({...config, totalLedgerMatchedValue: parseFloat(e.target.value) || 0})}
+                placeholder="Value of matched items"
               />
+            </div>
+            
+            <div className="input-group">
+              <label>
+                <XCircle size={16} />
+                Total Ledger Unmatched Value (₦)
+              </label>
+              <input
+                type="number"
+                value={config.totalLedgerUnmatchedValue}
+                onChange={(e) => setConfig({...config, totalLedgerUnmatchedValue: parseFloat(e.target.value) || 0})}
+                placeholder="Value of unmatched items"
+              />
+            </div>
+          </div>
+          <div className="statement-section">
+            <button 
+              className="statement-toggle"
+              onClick={() => setShowStatementFields(!showStatementFields)}
+            >
+              <div className="toggle-header">
+                <BookOpen size={18} />
+                <span>Optional: Statement Coverage Metrics</span>
+                {showStatementFields ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </div>
+              <p className="toggle-description">
+                Add statement totals to calculate reconciliation completeness percentages
+              </p>
+            </button>
+            
+            {showStatementFields && (
+              <div className="statement-grid">
+                <div className="input-group">
+                  <label>
+                    <Layers size={16} />
+                    Total Statement Count
+                  </label>
+                  <input
+                    type="number"
+                    value={config.totalStatementCount}
+                    onChange={(e) => setConfig({...config, totalStatementCount: parseFloat(e.target.value) || 0})}
+                    placeholder="Total items on bank statement"
+                  />
+                  <p className="input-hint">Leave as 0 if not available</p>
+                </div>
+                
+                <div className="input-group">
+                  <label>
+                    <DollarSign size={16} />
+                    Total Statement Value (₦)
+                  </label>
+                  <input
+                    type="number"
+                    value={config.totalStatementValue}
+                    onChange={(e) => setConfig({...config, totalStatementValue: parseFloat(e.target.value) || 0})}
+                    placeholder="Total value on bank statement"
+                  />
+                  <p className="input-hint">Leave as 0 if not available</p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="config-summary">
+            <div className="summary-item">
+              <span className="summary-label">Total Ledger Value:</span>
+              <span className="summary-value">
+                {formatCurrency(config.totalLedgerMatchedValue + config.totalLedgerUnmatchedValue)}
+              </span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Matched Records:</span>
+              <span className="summary-value">
+                {formatNumber(config.totalRecordsLedgerCount - config.totalOutstandingLedgerCount)}
+              </span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Match Rate:</span>
+              <span className="summary-value">
+                {config.totalRecordsLedgerCount > 0 
+                  ? (((config.totalRecordsLedgerCount - config.totalOutstandingLedgerCount) / config.totalRecordsLedgerCount) * 100).toFixed(1) + '%'
+                  : '0%'}
+              </span>
             </div>
           </div>
         </div>
-
-        {/* Data Input */}
-        <div className="data-input-grid">
-          <div className="card">
-            <h2 className="card-title">Dataset A (Source System)</h2>
-            <textarea
-              value={datasetA}
-              onChange={(e) => setDatasetA(e.target.value)}
-              placeholder="Format: ID, Amount&#10;INV001, 150000&#10;INV002, 275500&#10;INV003, 89999"
-            />
-          </div>
-
-          <div className="card">
-            <h2 className="card-title">Dataset B (Bank/ERP)</h2>
-            <textarea
-              value={datasetB}
-              onChange={(e) => setDatasetB(e.target.value)}
-              placeholder="Format: ID, Amount&#10;INV001, 150000&#10;INV002, 280000&#10;INV004, 120000"
-            />
-          </div>
-        </div>
-
         <div className="button-container">
           <button
-            onClick={reconcile}
-            disabled={!datasetA || !datasetB}
+            onClick={generateReport}
             className="btn-primary"
           >
             <BarChart3 size={24} />
-            Generate Reconciliation Intelligence Report
+            Calculate Reconciliation KPIs
           </button>
         </div>
 
@@ -231,12 +323,12 @@ export default function ReconciliationCalculator() {
                    '✗ Critical - Immediate Action Required'}
                 </p>
                 <p className="ftis-formula">
-                  Composite Score: RAR (40%) + AMER (30%) + (100-UVR) (20%) + RVI (10%)
+                  {results.kpis.statementMetricsAvailable 
+                    ? 'Composite Score: RAR (40%) + AMER (30%) + (100-UVR) (20%) + RVI (10%) + Completeness (10%)'
+                    : 'Composite Score: RAR (40%) + AMER (30%) + (100-UVR) (20%) + RVI (10%)'}
                 </p>
               </div>
             </div>
-
-            {/* Core KPI Dashboard */}
             <div className="kpi-grid">
               <div className="kpi-card kpi-rar">
                 <div className="kpi-header">
@@ -244,8 +336,11 @@ export default function ReconciliationCalculator() {
                   <CheckCircle size={20} />
                 </div>
                 <p className="kpi-value">{results.kpis.RAR.toFixed(2)}%</p>
-                <p className="kpi-label">Reconciliation Accuracy</p>
+                <p className="kpi-label">Reconciliation Accuracy Ratio</p>
                 <p className="kpi-target">Target: &gt;98%</p>
+                <div className="kpi-detail">
+                  {formatCurrency(results.kpis.totalLedgerMatchedValue)} matched
+                </div>
               </div>
 
               <div className="kpi-card kpi-uvr">
@@ -256,6 +351,9 @@ export default function ReconciliationCalculator() {
                 <p className="kpi-value">{results.kpis.UVR.toFixed(2)}%</p>
                 <p className="kpi-label">Unmatched Value Ratio</p>
                 <p className="kpi-target">Target: &lt;1%</p>
+                <div className="kpi-detail">
+                  {formatCurrency(results.kpis.totalLedgerUnmatchedValue)} at risk
+                </div>
               </div>
 
               <div className="kpi-card kpi-rvi">
@@ -264,8 +362,11 @@ export default function ReconciliationCalculator() {
                   <Zap size={20} />
                 </div>
                 <p className="kpi-value">{results.kpis.RVI.toFixed(2)}%</p>
-                <p className="kpi-label">Resolution Velocity</p>
+                <p className="kpi-label">Reconciliation Velocity Index</p>
                 <p className="kpi-target">Higher is better</p>
+                <div className="kpi-detail">
+                  {formatNumber(results.kpis.matchedRecordsCount)} records resolved
+                </div>
               </div>
 
               <div className="kpi-card kpi-amer">
@@ -274,44 +375,116 @@ export default function ReconciliationCalculator() {
                   <TrendingUp size={20} />
                 </div>
                 <p className="kpi-value">{results.kpis.AMER.toFixed(2)}%</p>
-                <p className="kpi-label">Auto-Match Efficiency</p>
+                <p className="kpi-label">Automated Match Efficiency Rate</p>
                 <p className="kpi-target">Automation maturity</p>
+                <div className="kpi-detail">
+                  {formatNumber(results.kpis.totalOutstandingLedgerCount)} outstanding
+                </div>
               </div>
             </div>
-
-            {/* Financial Impact */}
-            <div className="impact-grid">
-              <div className="card impact-card">
-                <div className="impact-header">
-                  <DollarSign size={24} />
-                  <h3>Unmatched Value</h3>
+            {results.kpis.statementMetricsAvailable && (
+              <div className="card completeness-card">
+                <h3 className="section-title">
+                  <BookOpen size={20} />
+                  Statement Coverage Analysis
+                </h3>
+                <div className="completeness-grid">
+                  <div className="completeness-metric">
+                    <div className="completeness-header">
+                      <span className="completeness-label">Record Coverage</span>
+                      <Percent size={16} />
+                    </div>
+                    <div className="completeness-value">
+                      {results.kpis.statementCoveragePercent.toFixed(1)}%
+                    </div>
+                    <div className="completeness-detail">
+                      {formatNumber(results.kpis.totalRecordsLedgerCount)} / {formatNumber(results.kpis.totalStatementCount)} records
+                    </div>
+                  </div>
+                  
+                  <div className="completeness-metric">
+                    <div className="completeness-header">
+                      <span className="completeness-label">Value Coverage</span>
+                      <DollarSign size={16} />
+                    </div>
+                    <div className="completeness-value">
+                      {results.kpis.valueCoveragePercent.toFixed(1)}%
+                    </div>
+                    <div className="completeness-detail">
+                      {formatCurrency(results.kpis.totalLedgerValue)} / {formatCurrency(results.kpis.totalStatementValue)}
+                    </div>
+                  </div>
+                  
+                  <div className="completeness-metric">
+                    <div className="completeness-header">
+                      <span className="completeness-label">Overall Completeness</span>
+                      <Shield size={16} />
+                    </div>
+                    <div className="completeness-value completeness-score">
+                      {results.kpis.completenessScore.toFixed(1)}%
+                    </div>
+                    <div className="completeness-detail">
+                      Weighted score (50% count, 50% value)
+                    </div>
+                  </div>
                 </div>
-                <p className="impact-value impact-warning">
-                  {formatCurrency(results.kpis.unmatchedValue)}
-                </p>
-                <p className="impact-label">Cash trapped in suspense</p>
               </div>
+            )}
 
-              <div className="card impact-card">
-                <div className="impact-header">
-                  <Shield size={24} />
-                  <h3>FEI</h3>
+            {/*Summary*/}
+            <div className="card data-summary">
+              <h3 className="section-title">
+                <PieChart size={20} />
+                Reconciliation Data Summary
+              </h3>
+              <div className="summary-grid">
+                <div className="summary-card">
+                  <h4>Volume Metrics</h4>
+                  <div className="metric">
+                    <span>Total Records Processed:</span>
+                    <span className="metric-value">{formatNumber(results.kpis.totalRecordsLedgerCount)}</span>
+                  </div>
+                  <div className="metric">
+                    <span>Matched Records:</span>
+                    <span className="metric-value success">{formatNumber(results.kpis.matchedRecordsCount)}</span>
+                  </div>
+                  <div className="metric">
+                    <span>Outstanding Records:</span>
+                    <span className="metric-value warning">{formatNumber(results.kpis.totalOutstandingLedgerCount)}</span>
+                  </div>
                 </div>
-                <p className="impact-value impact-danger">
-                  {results.kpis.FEI.toFixed(3)}%
-                </p>
-                <p className="impact-label">Financial Exposure Index</p>
-              </div>
-
-              <div className="card impact-card">
-                <div className="impact-header">
-                  <Clock size={24} />
-                  <h3>CoRT</h3>
+                
+                <div className="summary-card">
+                  <h4>Value Metrics</h4>
+                  <div className="metric">
+                    <span>Total Value Processed:</span>
+                    <span className="metric-value">{formatCurrency(results.kpis.totalLedgerValue)}</span>
+                  </div>
+                  <div className="metric">
+                    <span>Matched Value:</span>
+                    <span className="metric-value success">{formatCurrency(results.kpis.totalLedgerMatchedValue)}</span>
+                  </div>
+                  <div className="metric">
+                    <span>Unmatched Value:</span>
+                    <span className="metric-value danger">{formatCurrency(results.kpis.totalLedgerUnmatchedValue)}</span>
+                  </div>
                 </div>
-                <p className="impact-value impact-info">
-                  {formatCurrency(results.kpis.CoRT)}
-                </p>
-                <p className="impact-label">Cost per Transaction</p>
+                
+                <div className="summary-card">
+                  <h4>Efficiency Metrics</h4>
+                  <div className="metric">
+                    <span>Avg Transaction Value:</span>
+                    <span className="metric-value">{formatCurrency(results.kpis.avgTransactionValue)}</span>
+                  </div>
+                  <div className="metric">
+                    <span>Match Rate:</span>
+                    <span className="metric-value">{results.kpis.AMER.toFixed(1)}%</span>
+                  </div>
+                  <div className="metric">
+                    <span>Value Match Rate:</span>
+                    <span className="metric-value">{results.kpis.RAR.toFixed(1)}%</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -368,43 +541,6 @@ export default function ReconciliationCalculator() {
               </div>
             </div>
 
-            {/* Discrepancies Table */}
-            {results.discrepancies.length > 0 && (
-              <div className="card discrepancies-card">
-                <h3 className="section-title">
-                  <AlertCircle />
-                  Amount Discrepancies ({results.discrepancies.length})
-                </h3>
-                <div className="table-container">
-                  <table className="discrepancies-table">
-                    <thead>
-                      <tr>
-                        <th>Transaction ID</th>
-                        <th>Dataset A</th>
-                        <th>Dataset B</th>
-                        <th>Variance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {results.discrepancies.slice(0, 10).map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="mono">{item.id}</td>
-                          <td className="text-right">{formatCurrency(item.amountA)}</td>
-                          <td className="text-right">{formatCurrency(item.amountB)}</td>
-                          <td className="text-right variance">{formatCurrency(Math.abs(item.difference))}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {results.discrepancies.length > 10 && (
-                    <p className="table-note">
-                      Showing 10 of {results.discrepancies.length} discrepancies
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Executive Summary */}
             <div className="card executive-summary">
               <h2>Executive Impact Summary</h2>
@@ -412,20 +548,22 @@ export default function ReconciliationCalculator() {
                 <div>
                   <h3>Business Questions Answered:</h3>
                   <ul className="summary-list">
-                    <li>✓ <strong>Audit Integrity:</strong> {results.kpis.RAR.toFixed(1)}% of transactions verified</li>
-                    <li>✓ <strong>Cash Visibility:</strong> {formatCurrency(results.kpis.unmatchedValue)} unverified</li>
+                    <li>✓ <strong>Audit Integrity:</strong> {results.kpis.RAR.toFixed(1)}% of value verified</li>
+                    <li>✓ <strong>Cash Visibility:</strong> {formatCurrency(results.kpis.totalLedgerUnmatchedValue)} at risk</li>
                     <li>✓ <strong>Operational Speed:</strong> {results.kpis.RVI.toFixed(1)}% resolution rate</li>
                     <li>✓ <strong>Automation Maturity:</strong> {results.kpis.AMER.toFixed(1)}% auto-matched</li>
                     <li>✓ <strong>Data Trust:</strong> FTIS score of {results.kpis.FTIS.toFixed(1)}/100</li>
+                    {results.kpis.statementMetricsAvailable && (
+                      <li>✓ <strong>Coverage Completeness:</strong> {results.kpis.completenessScore.toFixed(1)}% of statement items analyzed</li>
+                    )}
                   </ul>
                 </div>
                 <div>
                   <h3>Key Takeaway:</h3>
                   <div className="takeaway-box">
                     <p>
-                      "What OEE is to manufacturing, these Reconciliation KPIs are to financial health. 
-                      Reconciliation is now visible, measurable, and strategic — not just bookkeeping, 
-                      but <strong>enterprise assurance</strong>."
+                      What OEE is to manufacturing, these Reconciliation KPIs are to financial health.
+                      Reconciliation is now visible, measurable, and strategic -not just bookkeeping, but <strong>enterprise assurance</strong>."
                     </p>
                   </div>
                 </div>
