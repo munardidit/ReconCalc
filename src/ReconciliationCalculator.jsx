@@ -247,11 +247,11 @@ export default function ReconciliationCalculator() {
             >
               <div className="toggle-header">
                 <BookOpen size={18} />
-                <span>Optional: Statement Coverage Metrics</span>
+                <span>Statement Coverage Metrics</span>
                 {showStatementFields ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </div>
               <p className="toggle-description">
-                Add statement totals to calculate reconciliation completeness percentages
+                Statement totals to calculate reconciliation completeness percentages
               </p>
             </button>
             
