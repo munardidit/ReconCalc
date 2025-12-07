@@ -10,75 +10,88 @@ export default function ReconciliationCalculator() {
   const [results, setResults] = useState(null);
   const [showStatementFields, setShowStatementFields] = useState(false);
   const [config, setConfig] = useState({
-    // ledger data
-    workingPeriod: 30, 
+    // Working period dates
+    startDate: '',
+    endDate: '',
+    
+    // Ledger counts
     totalRecordsLedgerCount: 5000,
-    totalRecordsMatchedLedgerCount:3000,
+    totalRecordsMatchedLedgerCount: 3000,
     totalOutstandingLedgerCount: 250,
+    
+    // Ledger values
+    totalLedgerValue: 5000000000,
     totalLedgerMatchedValue: 4750000000,
     totalLedgerUnmatchedValue: 250000000,
     
-    // Statement data (not very necessary)
-    totalStatementCount: 0,
-    totalStatementValue: 0
+    // Statement counts
+    totalStatementCount: 5500,
+    totalRecordsMatchedStatementCount: 3200,
+    totalOutstandingStatementCount: 300,
+    
+    // Statement values
+    totalStatementValue: 5200000000,
+    totalStatementMatchedValue: 4900000000,
+    totalStatementUnmatchedValue: 300000000,
+    
+    // SLA metrics for RVI
+    itemsResolvedWithinSLA: 2800,
+    totalExceptionsRaised: 3000
   });
 
   const calculateKPIs = () => {
     const {
-      workingPeriod,
+      startDate,
+      endDate,
       totalRecordsLedgerCount,
       totalRecordsMatchedLedgerCount,
       totalOutstandingLedgerCount,
+      totalLedgerValue,
       totalLedgerMatchedValue,
       totalLedgerUnmatchedValue,
       totalStatementCount,
-      totalStatementValue
+      totalRecordsMatchedStatementCount,
+      totalOutstandingStatementCount,
+      totalStatementValue,
+      totalStatementMatchedValue,
+      totalStatementUnmatchedValue,
+      itemsResolvedWithinSLA,
+      totalExceptionsRaised
     } = config;
 
-    // calculations
-    const totalLedgerValue = totalLedgerMatchedValue + totalLedgerUnmatchedValue;
-    const matchedRecordsCount = totalRecordsLedgerCount - totalOutstandingLedgerCount;
-    
-    // FTIS KPIs
-    const RAR = totalLedgerValue > 0 ? (totalLedgerMatchedValue / totalLedgerValue) * 100 : 0;
-    const UVR = totalLedgerValue > 0 ? (totalLedgerUnmatchedValue / totalLedgerValue) * 100 : 0;
-    const RVI = totalRecordsLedgerCount > 0 ? (matchedRecordsCount / totalRecordsLedgerCount) * 100 : 0;
-    const AMER = totalRecordsLedgerCount > 0 ? (matchedRecordsCount / totalRecordsLedgerCount) * 100 : 0;
-    
-    // Statement completeness metrics
-    let statementCoveragePercent = 0;
-    let valueCoveragePercent = 0;
-    let completenessScore = 0;
-    let statementMetricsAvailable = false;
-    
-    if (totalStatementCount > 0 && totalStatementValue > 0) {
-      statementMetricsAvailable = true;
-      statementCoveragePercent = totalRecordsLedgerCount > 0 ? 
-        (totalRecordsLedgerCount / totalStatementCount) * 100 : 0;
-      valueCoveragePercent = totalStatementValue > 0 ? 
-        (totalLedgerValue / totalStatementValue) * 100 : 0;
-      
-      // Calculate completeness score (50% count coverage, 50% value coverage)
-      completenessScore = (statementCoveragePercent * 0.5) + (valueCoveragePercent * 0.5);
+    // Calculate working period from dates
+    let workingPeriod = 30;
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      workingPeriod = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
     }
+
+    // Combined totals
+    const totalRecordsCount = totalRecordsLedgerCount + totalStatementCount;
+    const totalMatchedCount = totalRecordsMatchedLedgerCount + totalRecordsMatchedStatementCount;
+    const totalValue = totalLedgerValue + totalStatementValue;
+    const totalMatchedValue = totalLedgerMatchedValue + totalStatementMatchedValue;
+    const totalUnmatchedValue = totalLedgerUnmatchedValue + totalStatementUnmatchedValue;
     
-    // FTIS Calculation (with optional completeness bonus)
-    let FTIS = (RAR * 0.4) + (AMER * 0.3) + ((100 - UVR) * 0.2) + (RVI * 0.1);
+    // FTIS KPIs with new formulas
+    const RAR = totalRecordsCount > 0 ? (totalMatchedCount / totalRecordsCount) * 100 : 0;
+    const UVR = totalValue > 0 ? (totalUnmatchedValue / totalValue) * 100 : 0;
+    const RVI = totalExceptionsRaised > 0 ? (itemsResolvedWithinSLA / totalExceptionsRaised) * 100 : 0;
+    const AMER = totalRecordsLedgerCount > 0 ? (totalRecordsMatchedLedgerCount / totalRecordsLedgerCount) * 100 : 0;
     
-    // If statement metrics available, add completeness component (10% weight)
-    if (statementMetricsAvailable) {
-      FTIS = (FTIS * 0.9) + (completenessScore * 0.1);
-    }
+    // FTIS Calculation
+    const FTIS = (RAR * 0.4) + (AMER * 0.3) + ((100 - UVR) * 0.2) + (RVI * 0.1);
     
     // estimated Financial metrics 
-    const avgTransactionValue = totalLedgerValue / totalRecordsLedgerCount;
-    const reconciliationCost = totalRecordsLedgerCount * 1500; // Estimated cost per transaction
-    const monthlyTurnover = (totalLedgerValue / workingPeriod) * 30; // Extrapolate to monthly
-    const FEI = monthlyTurnover > 0 ? (totalLedgerUnmatchedValue / monthlyTurnover) * 100 : 0;
-    const CoRT = totalRecordsLedgerCount > 0 ? reconciliationCost / totalRecordsLedgerCount : 0;
+    const avgTransactionValue = totalValue / totalRecordsCount;
+    const reconciliationCost = totalRecordsCount * 1500; // Estimated cost per transaction
+    const monthlyTurnover = (totalValue / workingPeriod) * 30; // Extrapolate to monthly
+    const FEI = monthlyTurnover > 0 ? (totalUnmatchedValue / monthlyTurnover) * 100 : 0;
+    const CoRT = totalRecordsCount > 0 ? reconciliationCost / totalRecordsCount : 0;
     
     // ROI
-    const potentialRecovery = totalLedgerUnmatchedValue * 0.7; // Assume 70% recoverable
+    const potentialRecovery = totalUnmatchedValue * 0.7; // Assume 70% recoverable
     const annualRecovery = (potentialRecovery / workingPeriod) * 365;
     const staffSavings = reconciliationCost * 0.7;
     const totalAnnualBenefit = annualRecovery + staffSavings;
@@ -88,13 +101,26 @@ export default function ReconciliationCalculator() {
     return {
       RAR, UVR, RVI, AMER, FTIS,
       FEI, CoRT,
+      workingPeriod,
+      totalRecordsCount,
+      totalMatchedCount,
       totalRecordsLedgerCount,
       totalRecordsMatchedLedgerCount,
       totalOutstandingLedgerCount,
-      matchedRecordsCount,
+      totalStatementCount,
+      totalRecordsMatchedStatementCount,
+      totalOutstandingStatementCount,
+      totalValue,
+      totalMatchedValue,
+      totalUnmatchedValue,
       totalLedgerValue,
       totalLedgerMatchedValue,
       totalLedgerUnmatchedValue,
+      totalStatementValue,
+      totalStatementMatchedValue,
+      totalStatementUnmatchedValue,
+      itemsResolvedWithinSLA,
+      totalExceptionsRaised,
       avgTransactionValue,
       reconciliationCost,
       monthlyTurnover,
@@ -102,15 +128,7 @@ export default function ReconciliationCalculator() {
       annualRecovery,
       staffSavings,
       totalAnnualBenefit,
-      ROI,
-      
-      // statement side 
-      totalStatementCount,
-      totalStatementValue,
-      statementCoveragePercent,
-      valueCoveragePercent,
-      completenessScore,
-      statementMetricsAvailable
+      ROI
     };
   };
 
@@ -138,6 +156,17 @@ export default function ReconciliationCalculator() {
     return new Intl.NumberFormat('en-NG').format(value);
   };
 
+  const formatInputNumber = (value) => {
+    if (!value && value !== 0) return '';
+    return new Intl.NumberFormat('en-NG').format(value);
+  };
+
+  const parseInputNumber = (value) => {
+    if (!value) return 0;
+    
+    return parseFloat(value.toString().replace(/,/g, '')) || 0;
+  };
+
   return (
     <div className="recon-app">
       <div className="recon-container">
@@ -155,162 +184,242 @@ export default function ReconciliationCalculator() {
         <div className="card config-panel">
           <h3 className="section-title">
             <Database size={20} />
-            Reconciliation Software Data Input
+            Business Parameters
           </h3>
           <p className="config-description">
-            Input key reconciliation data metrics extracted from CLIREC to calculate real-time KPIs.
+            Input key reconciliation data metrics extracted from your reconciliation system to calculate real-time KPIs.
           </p>
           
-          <div className="config-grid">
-            <div className="input-group">
-              <label>
-                <Calendar size={16} />
-                Working Period (Days)
-              </label>
-              <input
-                type="number"
-                value={config.workingPeriod}
-                onChange={(e) => setConfig({...config, workingPeriod: parseFloat(e.target.value) || 0})}
-                placeholder="e.g., 30"
-              />
+          {/* Working Period */}
+          <div className="period-section">
+            <h4 className="subsection-title">
+              <Calendar size={18} />
+              Working Period
+            </h4>
+            <div className="date-grid">
+              <div className="input-group">
+                <label>Start Date</label>
+                <input
+                  type="date"
+                  value={config.startDate}
+                  onChange={(e) => setConfig({...config, startDate: e.target.value})}
+                />
+              </div>
+              <div className="input-group">
+                <label>End Date</label>
+                <input
+                  type="date"
+                  value={config.endDate}
+                  onChange={(e) => setConfig({...config, endDate: e.target.value})}
+                />
+              </div>
             </div>
-            
-            <div className="input-group">
-              <label>
-                <FileText size={16} />
-                Total Records Ledger Count
-              </label>
-              <input
-                type="number"
-                value={config.totalRecordsLedgerCount}
-                onChange={(e) => setConfig({...config, totalRecordsLedgerCount: parseFloat(e.target.value) || 0})}
-                placeholder="Total processed records"
-              />
-            </div>
-            
-             <div className="input-group">
-              <label>
-                <FileText size={16} />
-                Total Records Matched Ledger Count
-              </label>
-              <input
-                type="number"
-                value={config.totalRecordsMatchedLedgerCount}
-                onChange={(e) => setConfig({...config, totalRecordsMatchedLedgerCount: parseFloat(e.target.value) || 0})}
-                placeholder="Total processed ledger records"
-              />
-            </div>
+          </div>
 
-            <div className="input-group">
-              <label>
-                <AlertCircle size={16} />
-                Total Outstanding Ledger Count
-              </label>
-              <input
-                type="number"
-                value={config.totalOutstandingLedgerCount}
-                onChange={(e) => setConfig({...config, totalOutstandingLedgerCount: parseFloat(e.target.value) || 0})}
-                placeholder="Unmatched records"
-              />
-            </div>
+          {/* Ledger & Statement Data */}
+          <div className="data-section">
+            <h4 className="subsection-title">
+              <FileText size={18} />
+              Reconciliation Data
+            </h4>
             
-            <div className="input-group">
-              <label>
-                <CheckCircle size={16} />
-                Total Ledger Matched Value (₦)
-              </label>
-              <input
-                type="number"
-                value={config.totalLedgerMatchedValue}
-                onChange={(e) => setConfig({...config, totalLedgerMatchedValue: parseFloat(e.target.value) || 0})}
-                placeholder="Value of matched items"
-              />
-            </div>
-            
-            <div className="input-group">
-              <label>
-                <XCircle size={16} />
-                Total Ledger Unmatched Value (₦)
-              </label>
-              <input
-                type="number"
-                value={config.totalLedgerUnmatchedValue}
-                onChange={(e) => setConfig({...config, totalLedgerUnmatchedValue: parseFloat(e.target.value) || 0})}
-                placeholder="Value of unmatched items"
-              />
-            </div>
-          </div>
-          <div className="statement-section">
-            <button 
-              className="statement-toggle"
-              onClick={() => setShowStatementFields(!showStatementFields)}
-            >
-              <div className="toggle-header">
-                <BookOpen size={18} />
-                <span>Statement Coverage Metrics</span>
-                {showStatementFields ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-              </div>
-              <p className="toggle-description">
-                Statement totals to calculate reconciliation completeness percentages
-              </p>
-            </button>
-            
-            {showStatementFields && (
-              <div className="statement-grid">
-                <div className="input-group">
-                  <label>
-                    <Layers size={16} />
-                    Total Statement Count
-                  </label>
-                  <input
-                    type="number"
-                    value={config.totalStatementCount}
-                    onChange={(e) => setConfig({...config, totalStatementCount: parseFloat(e.target.value) || 0})}
-                    placeholder="Total items on bank statement"
-                  />
-                  <p className="input-hint">Leave as 0 if not available</p>
-                </div>
+            <div className="data-box">
+              {/* Counts Section */}
+              <div className="data-column">
+                <h5 className="column-title">Counts</h5>
                 
-                <div className="input-group">
-                  <label>
-                    <DollarSign size={16} />
-                    Total Statement Value (₦)
-                  </label>
-                  <input
-                    type="number"
-                    value={config.totalStatementValue}
-                    onChange={(e) => setConfig({...config, totalStatementValue: parseFloat(e.target.value) || 0})}
-                    placeholder="Total value on bank statement"
-                  />
-                  <p className="input-hint">Leave as 0 if not available</p>
+                <div className="data-group">
+                  <p className="group-label">Ledger</p>
+                  <div className="input-group">
+                    <label>Total Records (Ledger)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalRecordsLedgerCount)}
+                      onChange={(e) => setConfig({...config, totalRecordsLedgerCount: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 5,000"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>Matched Records (Ledger)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalRecordsMatchedLedgerCount)}
+                      onChange={(e) => setConfig({...config, totalRecordsMatchedLedgerCount: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 3,000"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>Outstanding Records (Ledger)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalOutstandingLedgerCount)}
+                      onChange={(e) => setConfig({...config, totalOutstandingLedgerCount: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 250"
+                    />
+                  </div>
+                </div>
+
+                <div className="data-group">
+                  <p className="group-label">Statement</p>
+                  <div className="input-group">
+                    <label>Total Records (Statement)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalStatementCount)}
+                      onChange={(e) => setConfig({...config, totalStatementCount: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 5,500"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>Matched Records (Statement)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalRecordsMatchedStatementCount)}
+                      onChange={(e) => setConfig({...config, totalRecordsMatchedStatementCount: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 3,200"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>Outstanding Records (Statement)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalOutstandingStatementCount)}
+                      onChange={(e) => setConfig({...config, totalOutstandingStatementCount: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 300"
+                    />
+                  </div>
                 </div>
               </div>
-            )}
+
+              {/* Values Section */}
+              <div className="data-column">
+                <h5 className="column-title">Values (₦)</h5>
+                
+                <div className="data-group">
+                  <p className="group-label">Ledger</p>
+                  <div className="input-group">
+                    <label>Total Value (Ledger)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalLedgerValue)}
+                      onChange={(e) => setConfig({...config, totalLedgerValue: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 5,000,000,000"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>Matched Value (Ledger)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalLedgerMatchedValue)}
+                      onChange={(e) => setConfig({...config, totalLedgerMatchedValue: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 4,750,000,000"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>Unmatched Value (Ledger)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalLedgerUnmatchedValue)}
+                      onChange={(e) => setConfig({...config, totalLedgerUnmatchedValue: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 250,000,000"
+                    />
+                  </div>
+                </div>
+
+                <div className="data-group">
+                  <p className="group-label">Statement</p>
+                  <div className="input-group">
+                    <label>Total Value (Statement)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalStatementValue)}
+                      onChange={(e) => setConfig({...config, totalStatementValue: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 5,200,000,000"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>Matched Value (Statement)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalStatementMatchedValue)}
+                      onChange={(e) => setConfig({...config, totalStatementMatchedValue: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 4,900,000,000"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>Unmatched Value (Statement)</label>
+                    <input
+                      type="text"
+                      value={formatInputNumber(config.totalStatementUnmatchedValue)}
+                      onChange={(e) => setConfig({...config, totalStatementUnmatchedValue: parseInputNumber(e.target.value)})}
+                      placeholder="e.g., 300,000,000"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          
+
+          {/* SLA Metrics for RVI */}
+          <div className="sla-section">
+            <h4 className="subsection-title">
+              <Clock size={18} />
+              SLA Performance Metrics
+            </h4>
+            <div className="sla-grid">
+              <div className="input-group">
+                <label>Items Resolved Within SLA</label>
+                <input
+                  type="text"
+                  value={formatInputNumber(config.itemsResolvedWithinSLA)}
+                  onChange={(e) => setConfig({...config, itemsResolvedWithinSLA: parseInputNumber(e.target.value)})}
+                  placeholder="e.g., 2,800"
+                />
+              </div>
+              <div className="input-group">
+                <label>Total Exceptions Raised</label>
+                <input
+                  type="text"
+                  value={formatInputNumber(config.totalExceptionsRaised)}
+                  onChange={(e) => setConfig({...config, totalExceptionsRaised: parseInputNumber(e.target.value)})}
+                  placeholder="e.g., 3,000"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="config-summary">
             <div className="summary-item">
-              <span className="summary-label">Total Ledger Value:</span>
+              <span className="summary-label">Working Period:</span>
               <span className="summary-value">
-                {formatCurrency(config.totalLedgerMatchedValue + config.totalLedgerUnmatchedValue)}
+                {config.startDate && config.endDate 
+                  ? `${Math.ceil((new Date(config.endDate) - new Date(config.startDate)) / (1000 * 60 * 60 * 24))} days`
+                  : '30 days (default)'}
               </span>
             </div>
             <div className="summary-item">
-              <span className="summary-label">Matched Records:</span>
+              <span className="summary-label">Total Combined Records:</span>
               <span className="summary-value">
-                {formatNumber(config.totalRecordsLedgerCount - config.totalOutstandingLedgerCount)}
+                {formatNumber(config.totalRecordsLedgerCount + config.totalStatementCount)}
               </span>
             </div>
             <div className="summary-item">
-              <span className="summary-label">Match Rate:</span>
+              <span className="summary-label">Total Combined Value:</span>
               <span className="summary-value">
-                {config.totalRecordsLedgerCount > 0 
-                  ? (((config.totalRecordsLedgerCount - config.totalOutstandingLedgerCount) / config.totalRecordsLedgerCount) * 100).toFixed(1) + '%'
+                {formatCurrency(config.totalLedgerValue + config.totalStatementValue)}
+              </span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Overall Match Rate:</span>
+              <span className="summary-value">
+                {(config.totalRecordsLedgerCount + config.totalStatementCount) > 0 
+                  ? (((config.totalRecordsMatchedLedgerCount + config.totalRecordsMatchedStatementCount) / (config.totalRecordsLedgerCount + config.totalStatementCount)) * 100).toFixed(1) + '%'
                   : '0%'}
               </span>
             </div>
           </div>
         </div>
+
         <div className="button-container">
           <button
             onClick={generateReport}
@@ -339,12 +448,11 @@ export default function ReconciliationCalculator() {
                    '✗ Critical - Immediate Action Required'}
                 </p>
                 <p className="ftis-formula">
-                  {results.kpis.statementMetricsAvailable 
-                    ? 'Composite Score: RAR (40%) + AMER (30%) + (100-UVR) (20%) + RVI (10%) + Completeness (10%)'
-                    : 'Composite Score: RAR (40%) + AMER (30%) + (100-UVR) (20%) + RVI (10%)'}
+                  Composite Score: RAR (40%) + AMER (30%) + (100-UVR) (20%) + RVI (10%)
                 </p>
               </div>
             </div>
+
             <div className="kpi-grid">
               <div className="kpi-card kpi-rar">
                 <div className="kpi-header">
@@ -355,7 +463,10 @@ export default function ReconciliationCalculator() {
                 <p className="kpi-label">Reconciliation Accuracy Ratio</p>
                 <p className="kpi-target">Target: &gt;98%</p>
                 <div className="kpi-detail">
-                  {formatCurrency(results.kpis.totalLedgerMatchedValue)} matched
+                  {formatNumber(results.kpis.totalMatchedCount)} / {formatNumber(results.kpis.totalRecordsCount)} matched
+                </div>
+                <div className="kpi-formula">
+                  Formula: (Ledger + Statement Matched) / (Ledger + Statement Total) × 100
                 </div>
               </div>
 
@@ -368,7 +479,10 @@ export default function ReconciliationCalculator() {
                 <p className="kpi-label">Unmatched Value Ratio</p>
                 <p className="kpi-target">Target: &lt;1%</p>
                 <div className="kpi-detail">
-                  {formatCurrency(results.kpis.totalLedgerUnmatchedValue)} at risk
+                  {formatCurrency(results.kpis.totalUnmatchedValue)} at risk
+                </div>
+                <div className="kpi-formula">
+                  Formula: Total Unmatched Value / Total Value × 100
                 </div>
               </div>
 
@@ -381,7 +495,10 @@ export default function ReconciliationCalculator() {
                 <p className="kpi-label">Reconciliation Velocity Index</p>
                 <p className="kpi-target">Higher is better</p>
                 <div className="kpi-detail">
-                  {formatNumber(results.kpis.matchedRecordsCount)} records resolved
+                  {formatNumber(results.kpis.itemsResolvedWithinSLA)} / {formatNumber(results.kpis.totalExceptionsRaised)} within SLA
+                </div>
+                <div className="kpi-formula">
+                  Formula: Items Resolved Within SLA / Total Exceptions Raised × 100
                 </div>
               </div>
 
@@ -394,58 +511,13 @@ export default function ReconciliationCalculator() {
                 <p className="kpi-label">Automated Match Efficiency Rate</p>
                 <p className="kpi-target">Automation maturity</p>
                 <div className="kpi-detail">
-                  {formatNumber(results.kpis.totalOutstandingLedgerCount)} outstanding
+                  {formatNumber(results.kpis.totalOutstandingLedgerCount)} ledger outstanding
+                </div>
+                <div className="kpi-formula">
+                  Formula: Ledger Matched / Total Ledger Records × 100
                 </div>
               </div>
             </div>
-            {results.kpis.statementMetricsAvailable && (
-              <div className="card completeness-card">
-                <h3 className="section-title">
-                  <BookOpen size={20} />
-                  Statement Coverage Analysis
-                </h3>
-                <div className="completeness-grid">
-                  <div className="completeness-metric">
-                    <div className="completeness-header">
-                      <span className="completeness-label">Record Coverage</span>
-                      <Percent size={16} />
-                    </div>
-                    <div className="completeness-value">
-                      {results.kpis.statementCoveragePercent.toFixed(1)}%
-                    </div>
-                    <div className="completeness-detail">
-                      {formatNumber(results.kpis.totalRecordsLedgerCount)} / {formatNumber(results.kpis.totalStatementCount)} records
-                    </div>
-                  </div>
-                  
-                  <div className="completeness-metric">
-                    <div className="completeness-header">
-                      <span className="completeness-label">Value Coverage</span>
-                      <DollarSign size={16} />
-                    </div>
-                    <div className="completeness-value">
-                      {results.kpis.valueCoveragePercent.toFixed(1)}%
-                    </div>
-                    <div className="completeness-detail">
-                      {formatCurrency(results.kpis.totalLedgerValue)} / {formatCurrency(results.kpis.totalStatementValue)}
-                    </div>
-                  </div>
-                  
-                  <div className="completeness-metric">
-                    <div className="completeness-header">
-                      <span className="completeness-label">Overall Completeness</span>
-                      <Shield size={16} />
-                    </div>
-                    <div className="completeness-value completeness-score">
-                      {results.kpis.completenessScore.toFixed(1)}%
-                    </div>
-                    <div className="completeness-detail">
-                      Weighted score (50% count, 50% value)
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/*Summary*/}
             <div className="card data-summary">
@@ -457,47 +529,51 @@ export default function ReconciliationCalculator() {
                 <div className="summary-card">
                   <h4>Volume Metrics</h4>
                   <div className="metric">
-                    <span>Total Records Processed:</span>
+                    <span>Total Combined Records:</span>
+                    <span className="metric-value">{formatNumber(results.kpis.totalRecordsCount)}</span>
+                  </div>
+                  <div className="metric">
+                    <span>Total Matched Records:</span>
+                    <span className="metric-value success">{formatNumber(results.kpis.totalMatchedCount)}</span>
+                  </div>
+                  <div className="metric">
+                    <span>Ledger Records:</span>
                     <span className="metric-value">{formatNumber(results.kpis.totalRecordsLedgerCount)}</span>
                   </div>
                   <div className="metric">
-                    <span>Matched Records:</span>
-                    <span className="metric-value success">{formatNumber(results.kpis.matchedRecordsCount)}</span>
-                  </div>
-                  <div className="metric">
-                    <span>Outstanding Records:</span>
-                    <span className="metric-value warning">{formatNumber(results.kpis.totalOutstandingLedgerCount)}</span>
+                    <span>Statement Records:</span>
+                    <span className="metric-value">{formatNumber(results.kpis.totalStatementCount)}</span>
                   </div>
                 </div>
                 
                 <div className="summary-card">
                   <h4>Value Metrics</h4>
                   <div className="metric">
-                    <span>Total Value Processed:</span>
-                    <span className="metric-value">{formatCurrency(results.kpis.totalLedgerValue)}</span>
+                    <span>Total Combined Value:</span>
+                    <span className="metric-value">{formatCurrency(results.kpis.totalValue)}</span>
                   </div>
                   <div className="metric">
-                    <span>Matched Value:</span>
-                    <span className="metric-value success">{formatCurrency(results.kpis.totalLedgerMatchedValue)}</span>
+                    <span>Total Matched Value:</span>
+                    <span className="metric-value success">{formatCurrency(results.kpis.totalMatchedValue)}</span>
                   </div>
                   <div className="metric">
-                    <span>Unmatched Value:</span>
-                    <span className="metric-value danger">{formatCurrency(results.kpis.totalLedgerUnmatchedValue)}</span>
+                    <span>Total Unmatched Value:</span>
+                    <span className="metric-value danger">{formatCurrency(results.kpis.totalUnmatchedValue)}</span>
                   </div>
                 </div>
                 
                 <div className="summary-card">
-                  <h4>Efficiency Metrics</h4>
+                  <h4>Performance Metrics</h4>
                   <div className="metric">
-                    <span>Avg Transaction Value:</span>
-                    <span className="metric-value">{formatCurrency(results.kpis.avgTransactionValue)}</span>
+                    <span>Working Period:</span>
+                    <span className="metric-value">{results.kpis.workingPeriod} days</span>
                   </div>
                   <div className="metric">
-                    <span>Match Rate:</span>
-                    <span className="metric-value">{results.kpis.AMER.toFixed(1)}%</span>
+                    <span>SLA Compliance Rate:</span>
+                    <span className="metric-value">{results.kpis.RVI.toFixed(1)}%</span>
                   </div>
                   <div className="metric">
-                    <span>Value Match Rate:</span>
+                    <span>Overall Match Rate:</span>
                     <span className="metric-value">{results.kpis.RAR.toFixed(1)}%</span>
                   </div>
                 </div>
@@ -564,14 +640,12 @@ export default function ReconciliationCalculator() {
                 <div>
                   <h3>Business Questions Answered:</h3>
                   <ul className="summary-list">
-                    <li>✓ <strong>Audit Integrity:</strong> {results.kpis.RAR.toFixed(1)}% of value verified</li>
-                    <li>✓ <strong>Cash Visibility:</strong> {formatCurrency(results.kpis.totalLedgerUnmatchedValue)} at risk</li>
-                    <li>✓ <strong>Operational Speed:</strong> {results.kpis.RVI.toFixed(1)}% resolution rate</li>
-                    <li>✓ <strong>Automation Maturity:</strong> {results.kpis.AMER.toFixed(1)}% auto-matched</li>
+                    <li>✓ <strong>Audit Integrity:</strong> {results.kpis.RAR.toFixed(1)}% of records verified</li>
+                    <li>✓ <strong>Cash Visibility:</strong> {formatCurrency(results.kpis.totalUnmatchedValue)} at risk</li>
+                    <li>✓ <strong>SLA Performance:</strong> {results.kpis.RVI.toFixed(1)}% resolved within SLA</li>
+                    <li>✓ <strong>Automation Maturity:</strong> {results.kpis.AMER.toFixed(1)}% ledger auto-matched</li>
                     <li>✓ <strong>Data Trust:</strong> FTIS score of {results.kpis.FTIS.toFixed(1)}/100</li>
-                    {results.kpis.statementMetricsAvailable && (
-                      <li>✓ <strong>Coverage Completeness:</strong> {results.kpis.completenessScore.toFixed(1)}% of statement items analyzed</li>
-                    )}
+                    <li>✓ <strong>Reconciliation Scope:</strong> {formatNumber(results.kpis.totalRecordsCount)} combined records analyzed</li>
                   </ul>
                 </div>
                 <div>
@@ -579,7 +653,7 @@ export default function ReconciliationCalculator() {
                   <div className="takeaway-box">
                     <p>
                       What OEE is to manufacturing, these Reconciliation KPIs are to financial health.
-                      Reconciliation is now visible, measurable, and strategic -not just bookkeeping, but <strong>enterprise assurance</strong>."
+                      Reconciliation is now visible, measurable, and strategic - not just bookkeeping, but <strong>enterprise assurance</strong>.
                     </p>
                   </div>
                 </div>
