@@ -8,11 +8,12 @@ import './ReconciliationCalculator.css';
 
 export default function ReconciliationCalculator() {
   const [results, setResults] = useState(null);
-  const [showStatementFields, setShowStatementFields] = useState(false);
+  const [aggregationLevel, setAggregationLevel] = useState('working-period');
   const [config, setConfig] = useState({
     // Working period dates
     startDate: '',
     endDate: '',
+    accountName: '',
     
     // Ledger counts
     totalRecordsLedgerCount: 5000,
@@ -74,7 +75,7 @@ export default function ReconciliationCalculator() {
     const totalMatchedValue = totalLedgerMatchedValue + totalStatementMatchedValue;
     const totalUnmatchedValue = totalLedgerUnmatchedValue + totalStatementUnmatchedValue;
     
-    // FTIS KPIs with new formulas
+    // FTIS KPIs
     const RAR = totalRecordsCount > 0 ? (totalMatchedCount / totalRecordsCount) * 100 : 0;
     const UVR = totalValue > 0 ? (totalUnmatchedValue / totalValue) * 100 : 0;
     const RVI = totalExceptionsRaised > 0 ? (itemsResolvedWithinSLA / totalExceptionsRaised) * 100 : 0;
@@ -85,13 +86,13 @@ export default function ReconciliationCalculator() {
     
     // estimated Financial metrics 
     const avgTransactionValue = totalValue / totalRecordsCount;
-    const reconciliationCost = totalRecordsCount * 1500; // Estimated cost per transaction
-    const monthlyTurnover = (totalValue / workingPeriod) * 30; // Extrapolate to monthly
+    const reconciliationCost = totalRecordsCount * 1500; 
+    const monthlyTurnover = (totalValue / workingPeriod) * 30;
     const FEI = monthlyTurnover > 0 ? (totalUnmatchedValue / monthlyTurnover) * 100 : 0;
     const CoRT = totalRecordsCount > 0 ? reconciliationCost / totalRecordsCount : 0;
     
     // ROI
-    const potentialRecovery = totalUnmatchedValue * 0.7; // Assume 70% recoverable
+    const potentialRecovery = totalUnmatchedValue * 0.7;
     const annualRecovery = (potentialRecovery / workingPeriod) * 365;
     const staffSavings = reconciliationCost * 0.7;
     const totalAnnualBenefit = annualRecovery + staffSavings;
@@ -137,10 +138,41 @@ export default function ReconciliationCalculator() {
     setResults({ kpis });
   };
 
-  const getHealthClass = (score) => {
-    if (score >= 95) return 'health-excellent';
-    if (score >= 85) return 'health-good';
+  const getHealthClass = (score, thresholds) => {
+    if (score >= thresholds.excellent) return 'health-excellent';
+    if (score >= thresholds.good) return 'health-good';
+    if (score >= thresholds.medium) return 'health-medium';
     return 'health-critical';
+  };
+
+  const getHealthLabel = (score, thresholds) => {
+    if (score >= thresholds.excellent) return 'Excellent';
+    if (score >= thresholds.good) return 'Good';
+    if (score >= thresholds.medium) return 'Medium';
+    return 'Critical';
+  };
+
+  // KPI Thresholds
+  const kpiThresholds = {
+    FTIS: { excellent: 95, good: 85, medium: 70 },
+    RAR: { excellent: 98, good: 95, medium: 90 },
+    AMER: { excellent: 95, good: 85, medium: 75 },
+    RVI: { excellent: 90, good: 80, medium: 70 },
+    UVR: { excellent: 1, good: 3, medium: 5, inverted: true }
+  };
+
+  const getHealthClassForUVR = (score) => {
+    if (score <= kpiThresholds.UVR.excellent) return 'health-excellent';
+    if (score <= kpiThresholds.UVR.good) return 'health-good';
+    if (score <= kpiThresholds.UVR.medium) return 'health-medium';
+    return 'health-critical';
+  };
+
+  const getHealthLabelForUVR = (score) => {
+    if (score <= kpiThresholds.UVR.excellent) return 'Excellent';
+    if (score <= kpiThresholds.UVR.good) return 'Good';
+    if (score <= kpiThresholds.UVR.medium) return 'Medium';
+    return 'Critical';
   };
 
   const formatCurrency = (value) => {
@@ -163,7 +195,6 @@ export default function ReconciliationCalculator() {
 
   const parseInputNumber = (value) => {
     if (!value) return 0;
-    
     return parseFloat(value.toString().replace(/,/g, '')) || 0;
   };
 
@@ -187,33 +218,90 @@ export default function ReconciliationCalculator() {
             Business Parameters
           </h3>
           <p className="config-description">
-            Input key reconciliation data metrics extracted from your reconciliation system to calculate real-time KPIs.
+            Input Metrics to calculate real-time KPIs.
           </p>
           
+          {/* Aggregation Level Selection */}
+          <div className="period-section">
+            <h4 className="subsection-title">
+              <Layers size={18} />
+              Aggregation Level
+            </h4>
+            <div className="aggregation-selector">
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  value="working-period"
+                  checked={aggregationLevel === 'working-period'}
+                  onChange={(e) => setAggregationLevel(e.target.value)}
+                />
+                <span>By Working Period</span>
+              </label>
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  value="account"
+                  checked={aggregationLevel === 'account'}
+                  onChange={(e) => setAggregationLevel(e.target.value)}
+                />
+                <span>By Account Level</span>
+              </label>
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  value="enterprise"
+                  checked={aggregationLevel === 'enterprise'}
+                  onChange={(e) => setAggregationLevel(e.target.value)}
+                />
+                <span>By Enterprise Level</span>
+              </label>
+            </div>
+          </div>
+
           {/* Working Period */}
           <div className="period-section">
             <h4 className="subsection-title">
               <Calendar size={18} />
-              Working Period
+              {aggregationLevel === 'working-period' && 'Working Period'}
+              {aggregationLevel === 'account' && 'Account Details'}
+              {aggregationLevel === 'enterprise' && 'Enterprise Overview'}
             </h4>
-            <div className="date-grid">
+            {aggregationLevel === 'working-period' && (
+              <div className="date-grid">
+                <div className="input-group">
+                  <label>Start Date</label>
+                  <input
+                    type="date"
+                    value={config.startDate}
+                    onChange={(e) => setConfig({...config, startDate: e.target.value})}
+                  />
+                </div>
+                <div className="input-group">
+                  <label>End Date</label>
+                  <input
+                    type="date"
+                    value={config.endDate}
+                    onChange={(e) => setConfig({...config, endDate: e.target.value})}
+                  />
+                </div>
+              </div>
+            )}
+            {aggregationLevel === 'account' && (
               <div className="input-group">
-                <label>Start Date</label>
+                <label>Account Name</label>
                 <input
-                  type="date"
-                  value={config.startDate}
-                  onChange={(e) => setConfig({...config, startDate: e.target.value})}
+                  type="text"
+                  value={config.accountName}
+                  onChange={(e) => setConfig({...config, accountName: e.target.value})}
+                  placeholder="e.g., Current Account - USD"
                 />
               </div>
-              <div className="input-group">
-                <label>End Date</label>
-                <input
-                  type="date"
-                  value={config.endDate}
-                  onChange={(e) => setConfig({...config, endDate: e.target.value})}
-                />
-              </div>
-            </div>
+            )}
+            {aggregationLevel === 'enterprise' && (
+              <p className="aggregation-description">
+                Enterprise-level view aggregates all reconciliation data across all accounts and periods.
+              </p>
+            )}
           </div>
 
           {/* Ledger & Statement Data */}
@@ -390,13 +478,29 @@ export default function ReconciliationCalculator() {
 
           <div className="config-summary">
             <div className="summary-item">
-              <span className="summary-label">Working Period:</span>
+              <span className="summary-label">Aggregation Level:</span>
               <span className="summary-value">
-                {config.startDate && config.endDate 
-                  ? `${Math.ceil((new Date(config.endDate) - new Date(config.startDate)) / (1000 * 60 * 60 * 24))} days`
-                  : '30 days (default)'}
+                {aggregationLevel === 'working-period' && 'By Working Period'}
+                {aggregationLevel === 'account' && 'By Account Level'}
+                {aggregationLevel === 'enterprise' && 'By Enterprise Level'}
               </span>
             </div>
+            {aggregationLevel === 'working-period' && (
+              <div className="summary-item">
+                <span className="summary-label">Working Period:</span>
+                <span className="summary-value">
+                  {config.startDate && config.endDate 
+                    ? `${Math.ceil((new Date(config.endDate) - new Date(config.startDate)) / (1000 * 60 * 60 * 24))} days`
+                    : '30 days (default)'}
+                </span>
+              </div>
+            )}
+            {aggregationLevel === 'account' && config.accountName && (
+              <div className="summary-item">
+                <span className="summary-label">Account:</span>
+                <span className="summary-value">{config.accountName}</span>
+              </div>
+            )}
             <div className="summary-item">
               <span className="summary-label">Total Combined Records:</span>
               <span className="summary-value">
@@ -433,18 +537,38 @@ export default function ReconciliationCalculator() {
         {results && results.kpis && (
           <div className="results-container">
             {/* FTIS Score */}
-            <div className={`ftis-card ${getHealthClass(results.kpis.FTIS)}`}>
+            <div className={`ftis-card ${getHealthClass(results.kpis.FTIS, kpiThresholds.FTIS)}`}>
               <div className="ftis-content">
                 <div className="ftis-header">
                   <Shield size={32} />
                   <h2>Financial Truth Integrity Score (FTIS)</h2>
                 </div>
+                <div className="kpi-legend">
+                  <span className="legend-item">
+                    <span className="legend-dot excellent"></span>
+                    Excellent (≥95%)
+                  </span>
+                  <span className="legend-item">
+                    <span className="legend-dot good"></span>
+                    Good (85-94%)
+                  </span>
+                  <span className="legend-item">
+                    <span className="legend-dot medium"></span>
+                    Medium (70-84%)
+                  </span>
+                  <span className="legend-item">
+                    <span className="legend-dot critical"></span>
+                    Critical (&lt;70%)
+                  </span>
+                </div>
                 <div className="ftis-score">
                   {results.kpis.FTIS.toFixed(1)}
+                  <span className="health-badge">{getHealthLabel(results.kpis.FTIS, kpiThresholds.FTIS)}</span>
                 </div>
                 <p className="ftis-status">
                   {results.kpis.FTIS >= 95 ? '✓ Excellent - Data Truth Assurance Achieved' :
                    results.kpis.FTIS >= 85 ? '⚠ Good - Minor Improvements Needed' :
+                   results.kpis.FTIS >= 70 ? '⚠ Medium - Improvements Required' :
                    '✗ Critical - Immediate Action Required'}
                 </p>
                 <p className="ftis-formula">
@@ -454,12 +578,22 @@ export default function ReconciliationCalculator() {
             </div>
 
             <div className="kpi-grid">
-              <div className="kpi-card kpi-rar">
+              <div className={`kpi-card ${getHealthClass(results.kpis.RAR, kpiThresholds.RAR)}`}>
                 <div className="kpi-header">
                   <h3>RAR</h3>
                   <CheckCircle size={20} />
                 </div>
-                <p className="kpi-value">{results.kpis.RAR.toFixed(2)}%</p>
+                <div className="kpi-legend-mini">
+                  <span className="legend-dot-mini excellent"></span>
+                  <span className="legend-dot-mini good"></span>
+                  <span className="legend-dot-mini medium"></span>
+                  <span className="legend-dot-mini critical"></span>
+                  <span className="legend-text-mini">≥98% | 95-97% | 90-94% | &lt;90%</span>
+                </div>
+                <p className="kpi-value">
+                  {results.kpis.RAR.toFixed(2)}%
+                  <span className="kpi-badge">{getHealthLabel(results.kpis.RAR, kpiThresholds.RAR)}</span>
+                </p>
                 <p className="kpi-label">Reconciliation Accuracy Ratio</p>
                 <p className="kpi-target">Target: &gt;98%</p>
                 <div className="kpi-detail">
@@ -470,12 +604,22 @@ export default function ReconciliationCalculator() {
                 </div>
               </div>
 
-              <div className="kpi-card kpi-uvr">
+              <div className={`kpi-card ${getHealthClassForUVR(results.kpis.UVR)}`}>
                 <div className="kpi-header">
                   <h3>UVR</h3>
                   <AlertCircle size={20} />
                 </div>
-                <p className="kpi-value">{results.kpis.UVR.toFixed(2)}%</p>
+                <div className="kpi-legend-mini">
+                  <span className="legend-dot-mini excellent"></span>
+                  <span className="legend-dot-mini good"></span>
+                  <span className="legend-dot-mini medium"></span>
+                  <span className="legend-dot-mini critical"></span>
+                  <span className="legend-text-mini">≤1% | 1-3% | 3-5% | &gt;5%</span>
+                </div>
+                <p className="kpi-value">
+                  {results.kpis.UVR.toFixed(2)}%
+                  <span className="kpi-badge">{getHealthLabelForUVR(results.kpis.UVR)}</span>
+                </p>
                 <p className="kpi-label">Unmatched Value Ratio</p>
                 <p className="kpi-target">Target: &lt;1%</p>
                 <div className="kpi-detail">
@@ -486,12 +630,22 @@ export default function ReconciliationCalculator() {
                 </div>
               </div>
 
-              <div className="kpi-card kpi-rvi">
+              <div className={`kpi-card ${getHealthClass(results.kpis.RVI, kpiThresholds.RVI)}`}>
                 <div className="kpi-header">
                   <h3>RVI</h3>
                   <Zap size={20} />
                 </div>
-                <p className="kpi-value">{results.kpis.RVI.toFixed(2)}%</p>
+                <div className="kpi-legend-mini">
+                  <span className="legend-dot-mini excellent"></span>
+                  <span className="legend-dot-mini good"></span>
+                  <span className="legend-dot-mini medium"></span>
+                  <span className="legend-dot-mini critical"></span>
+                  <span className="legend-text-mini">≥90% | 80-89% | 70-79% | &lt;70%</span>
+                </div>
+                <p className="kpi-value">
+                  {results.kpis.RVI.toFixed(2)}%
+                  <span className="kpi-badge">{getHealthLabel(results.kpis.RVI, kpiThresholds.RVI)}</span>
+                </p>
                 <p className="kpi-label">Reconciliation Velocity Index</p>
                 <p className="kpi-target">Higher is better</p>
                 <div className="kpi-detail">
@@ -502,12 +656,22 @@ export default function ReconciliationCalculator() {
                 </div>
               </div>
 
-              <div className="kpi-card kpi-amer">
+              <div className={`kpi-card ${getHealthClass(results.kpis.AMER, kpiThresholds.AMER)}`}>
                 <div className="kpi-header">
                   <h3>AMER</h3>
                   <TrendingUp size={20} />
                 </div>
-                <p className="kpi-value">{results.kpis.AMER.toFixed(2)}%</p>
+                <div className="kpi-legend-mini">
+                  <span className="legend-dot-mini excellent"></span>
+                  <span className="legend-dot-mini good"></span>
+                  <span className="legend-dot-mini medium"></span>
+                  <span className="legend-dot-mini critical"></span>
+                  <span className="legend-text-mini">≥95% | 85-94% | 75-84% | &lt;75%</span>
+                </div>
+                <p className="kpi-value">
+                  {results.kpis.AMER.toFixed(2)}%
+                  <span className="kpi-badge">{getHealthLabel(results.kpis.AMER, kpiThresholds.AMER)}</span>
+                </p>
                 <p className="kpi-label">Automated Match Efficiency Rate</p>
                 <p className="kpi-target">Automation maturity</p>
                 <div className="kpi-detail">
