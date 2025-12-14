@@ -91,13 +91,31 @@ export default function ReconciliationCalculator() {
     const FEI = monthlyTurnover > 0 ? (totalUnmatchedValue / monthlyTurnover) * 100 : 0;
     const CoRT = totalRecordsCount > 0 ? reconciliationCost / totalRecordsCount : 0;
     
-    // ROI
-    const potentialRecovery = totalUnmatchedValue * 0.7;
-    const annualRecovery = (potentialRecovery / workingPeriod) * 365;
-    const staffSavings = reconciliationCost * 0.7;
-    const totalAnnualBenefit = annualRecovery + staffSavings;
-    const automationCost = 150000000;
-    const ROI = automationCost > 0 ? ((totalAnnualBenefit - automationCost) / automationCost) * 100 : 0;
+    // ROI Framework
+    // Manual baseline: 5-10 FTEs, after automation: 1-2 FTEs (70% time saved)
+    const manualStaffCost = 5 * 15000000; // 5 FTEs at ₦6M per year average
+    const automatedStaffCost = 1.5 * 15000000; // 1.5 FTEs supervising
+    const staffSavings = manualStaffCost - automatedStaffCost;
+    
+    // Cash recovery: unmatched ratio drops from 1% to 0.1%
+    const baselineUnmatchedRatio = 0.01; // 1%
+    const currentUnmatchedRatio = UVR / 100;
+    const unmatchedImprovement = Math.max(0, baselineUnmatchedRatio - currentUnmatchedRatio);
+    const monthlyRecovery = monthlyTurnover * unmatchedImprovement;
+    const annualCashRecovery = monthlyRecovery * 12;
+    
+    // Audit efficiency savings
+    const auditSavings = 10000000; // ₦10M annually from reduced audit queries
+    
+    // Total annual benefit
+    const totalAnnualBenefit = annualCashRecovery + staffSavings + auditSavings;
+    
+    // Automation cost
+    const automationCost = 150000000; // ₦150M.
+    
+    // ROI calculation
+    const netBenefit = totalAnnualBenefit - automationCost;
+    const ROI = automationCost > 0 ? (netBenefit / automationCost) * 100 : 0;
 
     return {
       RAR, UVR, RVI, AMER, FTIS,
@@ -125,10 +143,12 @@ export default function ReconciliationCalculator() {
       avgTransactionValue,
       reconciliationCost,
       monthlyTurnover,
-      potentialRecovery,
-      annualRecovery,
+      annualCashRecovery,
       staffSavings,
+      auditSavings,
       totalAnnualBenefit,
+      automationCost,
+      netBenefit,
       ROI
     };
   };
@@ -287,20 +307,60 @@ export default function ReconciliationCalculator() {
               </div>
             )}
             {aggregationLevel === 'account' && (
-              <div className="input-group">
-                <label>Account Name</label>
-                <input
-                  type="text"
-                  value={config.accountName}
-                  onChange={(e) => setConfig({...config, accountName: e.target.value})}
-                  placeholder="e.g., Current Account - USD"
-                />
-              </div>
+              <>
+                <div className="input-group">
+                  <label>Account Name</label>
+                  <input
+                    type="text"
+                    value={config.accountName}
+                    onChange={(e) => setConfig({...config, accountName: e.target.value})}
+                    placeholder="e.g., Current Account - USD"
+                  />
+                </div>
+                <div className="date-grid" style={{marginTop: '1rem'}}>
+                  <div className="input-group">
+                    <label>Start Date</label>
+                    <input
+                      type="date"
+                      value={config.startDate}
+                      onChange={(e) => setConfig({...config, startDate: e.target.value})}
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>End Date</label>
+                    <input
+                      type="date"
+                      value={config.endDate}
+                      onChange={(e) => setConfig({...config, endDate: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </>
             )}
             {aggregationLevel === 'enterprise' && (
-              <p className="aggregation-description">
-                Enterprise-level view aggregates all reconciliation data across all accounts and periods.
-              </p>
+              <>
+                <p className="aggregation-description">
+                  Enterprise-level view aggregates all reconciliation data across all accounts and periods.
+                </p>
+                <div className="date-grid" style={{marginTop: '1rem'}}>
+                  <div className="input-group">
+                    <label>Start Date</label>
+                    <input
+                      type="date"
+                      value={config.startDate}
+                      onChange={(e) => setConfig({...config, startDate: e.target.value})}
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>End Date</label>
+                    <input
+                      type="date"
+                      value={config.endDate}
+                      onChange={(e) => setConfig({...config, endDate: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </div>
 
@@ -536,44 +596,48 @@ export default function ReconciliationCalculator() {
 
         {results && results.kpis && (
           <div className="results-container">
-            {/* FTIS Score */}
+           {/* FTIS Score */}
             <div className={`ftis-card ${getHealthClass(results.kpis.FTIS, kpiThresholds.FTIS)}`}>
               <div className="ftis-content">
                 <div className="ftis-header">
                   <Shield size={32} />
                   <h2>Financial Truth Integrity Score (FTIS)</h2>
                 </div>
-                <div className="kpi-legend">
-                  <span className="legend-item">
-                    <span className="legend-dot excellent"></span>
-                    Excellent (≥95%)
-                  </span>
-                  <span className="legend-item">
-                    <span className="legend-dot good"></span>
-                    Good (85-94%)
-                  </span>
-                  <span className="legend-item">
-                    <span className="legend-dot medium"></span>
-                    Medium (70-84%)
-                  </span>
-                  <span className="legend-item">
-                    <span className="legend-dot critical"></span>
-                    Critical (&lt;70%)
-                  </span>
+                <div className="ftis-content-row">
+                  <div className="ftis-main">
+                    <div className="ftis-score">
+                      {results.kpis.FTIS.toFixed(1)}
+                      <span className="health-badge">{getHealthLabel(results.kpis.FTIS, kpiThresholds.FTIS)}</span>
+                    </div>
+                    <p className="ftis-status">
+                      {results.kpis.FTIS >= 95 ? '✓ Excellent - Data Truth Assurance Achieved' :
+                       results.kpis.FTIS >= 85 ? '⚠ Good - Minor Improvements Needed' :
+                       results.kpis.FTIS >= 70 ? '⚠ Medium - Improvements Required' :
+                       '✗ Critical - Immediate Action Required'}
+                    </p>
+                    <p className="ftis-formula">
+                      Composite Score: RAR (40%) + AMER (30%) + (100-UVR) (20%) + RVI (10%)
+                    </p>
+                  </div>
+                  <div className="kpi-legend-vertical">
+                    <div className="legend-item-vertical excellent">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">≥95%</span>
+                    </div>
+                    <div className="legend-item-vertical good">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">85-94%</span>
+                    </div>
+                    <div className="legend-item-vertical medium">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">70-84%</span>
+                    </div>
+                    <div className="legend-item-vertical critical">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">&lt;70%</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="ftis-score">
-                  {results.kpis.FTIS.toFixed(1)}
-                  <span className="health-badge">{getHealthLabel(results.kpis.FTIS, kpiThresholds.FTIS)}</span>
-                </div>
-                <p className="ftis-status">
-                  {results.kpis.FTIS >= 95 ? '✓ Excellent - Data Truth Assurance Achieved' :
-                   results.kpis.FTIS >= 85 ? '⚠ Good - Minor Improvements Needed' :
-                   results.kpis.FTIS >= 70 ? '⚠ Medium - Improvements Required' :
-                   '✗ Critical - Immediate Action Required'}
-                </p>
-                <p className="ftis-formula">
-                  Composite Score: RAR (40%) + AMER (30%) + (100-UVR) (20%) + RVI (10%)
-                </p>
               </div>
             </div>
 
@@ -583,24 +647,39 @@ export default function ReconciliationCalculator() {
                   <h3>RAR</h3>
                   <CheckCircle size={20} />
                 </div>
-                <div className="kpi-legend-mini">
-                  <span className="legend-dot-mini excellent"></span>
-                  <span className="legend-dot-mini good"></span>
-                  <span className="legend-dot-mini medium"></span>
-                  <span className="legend-dot-mini critical"></span>
-                  <span className="legend-text-mini">≥98% | 95-97% | 90-94% | &lt;90%</span>
-                </div>
-                <p className="kpi-value">
-                  {results.kpis.RAR.toFixed(2)}%
-                  <span className="kpi-badge">{getHealthLabel(results.kpis.RAR, kpiThresholds.RAR)}</span>
-                </p>
-                <p className="kpi-label">Reconciliation Accuracy Ratio</p>
-                <p className="kpi-target">Target: &gt;98%</p>
-                <div className="kpi-detail">
-                  {formatNumber(results.kpis.totalMatchedCount)} / {formatNumber(results.kpis.totalRecordsCount)} matched
-                </div>
-                <div className="kpi-formula">
-                  Formula: (Ledger + Statement Matched) / (Ledger + Statement Total) × 100
+                <div className="kpi-content-row">
+                  <div className="kpi-main">
+                    <p className="kpi-value">
+                      {results.kpis.RAR.toFixed(2)}%
+                      <span className="kpi-badge">{getHealthLabel(results.kpis.RAR, kpiThresholds.RAR)}</span>
+                    </p>
+                    <p className="kpi-label">Reconciliation Accuracy Ratio</p>
+                    <p className="kpi-target">Target: &gt;98%</p>
+                    <div className="kpi-detail">
+                      {formatNumber(results.kpis.totalMatchedCount)} / {formatNumber(results.kpis.totalRecordsCount)} matched
+                    </div>
+                    <div className="kpi-formula">
+                      Formula: (Ledger + Statement Matched) / (Ledger + Statement Total) × 100
+                    </div>
+                  </div>
+                  <div className="kpi-legend-vertical">
+                    <div className="legend-item-vertical excellent">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">≥98%</span>
+                    </div>
+                    <div className="legend-item-vertical good">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">95-97%</span>
+                    </div>
+                    <div className="legend-item-vertical medium">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">90-94%</span>
+                    </div>
+                    <div className="legend-item-vertical critical">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">&lt;90%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -609,24 +688,39 @@ export default function ReconciliationCalculator() {
                   <h3>UVR</h3>
                   <AlertCircle size={20} />
                 </div>
-                <div className="kpi-legend-mini">
-                  <span className="legend-dot-mini excellent"></span>
-                  <span className="legend-dot-mini good"></span>
-                  <span className="legend-dot-mini medium"></span>
-                  <span className="legend-dot-mini critical"></span>
-                  <span className="legend-text-mini">≤1% | 1-3% | 3-5% | &gt;5%</span>
-                </div>
-                <p className="kpi-value">
-                  {results.kpis.UVR.toFixed(2)}%
-                  <span className="kpi-badge">{getHealthLabelForUVR(results.kpis.UVR)}</span>
-                </p>
-                <p className="kpi-label">Unmatched Value Ratio</p>
-                <p className="kpi-target">Target: &lt;1%</p>
-                <div className="kpi-detail">
-                  {formatCurrency(results.kpis.totalUnmatchedValue)} at risk
-                </div>
-                <div className="kpi-formula">
-                  Formula: Total Unmatched Value / Total Value × 100
+                <div className="kpi-content-row">
+                  <div className="kpi-main">
+                    <p className="kpi-value">
+                      {results.kpis.UVR.toFixed(2)}%
+                      <span className="kpi-badge">{getHealthLabelForUVR(results.kpis.UVR)}</span>
+                    </p>
+                    <p className="kpi-label">Unmatched Value Ratio</p>
+                    <p className="kpi-target">Target: &lt;1%</p>
+                    <div className="kpi-detail">
+                      {formatCurrency(results.kpis.totalUnmatchedValue)} at risk
+                    </div>
+                    <div className="kpi-formula">
+                      Formula: Total Unmatched Value / Total Value × 100
+                    </div>
+                  </div>
+                  <div className="kpi-legend-vertical">
+                    <div className="legend-item-vertical excellent">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">≤1%</span>
+                    </div>
+                    <div className="legend-item-vertical good">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">1-3%</span>
+                    </div>
+                    <div className="legend-item-vertical medium">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">3-5%</span>
+                    </div>
+                    <div className="legend-item-vertical critical">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">&gt;5%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -635,24 +729,39 @@ export default function ReconciliationCalculator() {
                   <h3>RVI</h3>
                   <Zap size={20} />
                 </div>
-                <div className="kpi-legend-mini">
-                  <span className="legend-dot-mini excellent"></span>
-                  <span className="legend-dot-mini good"></span>
-                  <span className="legend-dot-mini medium"></span>
-                  <span className="legend-dot-mini critical"></span>
-                  <span className="legend-text-mini">≥90% | 80-89% | 70-79% | &lt;70%</span>
-                </div>
-                <p className="kpi-value">
-                  {results.kpis.RVI.toFixed(2)}%
-                  <span className="kpi-badge">{getHealthLabel(results.kpis.RVI, kpiThresholds.RVI)}</span>
-                </p>
-                <p className="kpi-label">Reconciliation Velocity Index</p>
-                <p className="kpi-target">Higher is better</p>
-                <div className="kpi-detail">
-                  {formatNumber(results.kpis.itemsResolvedWithinSLA)} / {formatNumber(results.kpis.totalExceptionsRaised)} within SLA
-                </div>
-                <div className="kpi-formula">
-                  Formula: Items Resolved Within SLA / Total Exceptions Raised × 100
+                <div className="kpi-content-row">
+                  <div className="kpi-main">
+                    <p className="kpi-value">
+                      {results.kpis.RVI.toFixed(2)}%
+                      <span className="kpi-badge">{getHealthLabel(results.kpis.RVI, kpiThresholds.RVI)}</span>
+                    </p>
+                    <p className="kpi-label">Reconciliation Velocity Index</p>
+                    <p className="kpi-target">Higher is better</p>
+                    <div className="kpi-detail">
+                      {formatNumber(results.kpis.itemsResolvedWithinSLA)} / {formatNumber(results.kpis.totalExceptionsRaised)} within SLA
+                    </div>
+                    <div className="kpi-formula">
+                      Formula: Items Resolved Within SLA / Total Exceptions Raised × 100
+                    </div>
+                  </div>
+                  <div className="kpi-legend-vertical">
+                    <div className="legend-item-vertical excellent">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">≥90%</span>
+                    </div>
+                    <div className="legend-item-vertical good">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">80-89%</span>
+                    </div>
+                    <div className="legend-item-vertical medium">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">70-79%</span>
+                    </div>
+                    <div className="legend-item-vertical critical">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">&lt;70%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -661,24 +770,39 @@ export default function ReconciliationCalculator() {
                   <h3>AMER</h3>
                   <TrendingUp size={20} />
                 </div>
-                <div className="kpi-legend-mini">
-                  <span className="legend-dot-mini excellent"></span>
-                  <span className="legend-dot-mini good"></span>
-                  <span className="legend-dot-mini medium"></span>
-                  <span className="legend-dot-mini critical"></span>
-                  <span className="legend-text-mini">≥95% | 85-94% | 75-84% | &lt;75%</span>
-                </div>
-                <p className="kpi-value">
-                  {results.kpis.AMER.toFixed(2)}%
-                  <span className="kpi-badge">{getHealthLabel(results.kpis.AMER, kpiThresholds.AMER)}</span>
-                </p>
-                <p className="kpi-label">Automated Match Efficiency Rate</p>
-                <p className="kpi-target">Automation maturity</p>
-                <div className="kpi-detail">
-                  {formatNumber(results.kpis.totalOutstandingLedgerCount)} ledger outstanding
-                </div>
-                <div className="kpi-formula">
-                  Formula: Ledger Matched / Total Ledger Records × 100
+                <div className="kpi-content-row">
+                  <div className="kpi-main">
+                    <p className="kpi-value">
+                      {results.kpis.AMER.toFixed(2)}%
+                      <span className="kpi-badge">{getHealthLabel(results.kpis.AMER, kpiThresholds.AMER)}</span>
+                    </p>
+                    <p className="kpi-label">Automated Match Efficiency Rate</p>
+                    <p className="kpi-target">Automation maturity</p>
+                    <div className="kpi-detail">
+                      {formatNumber(results.kpis.totalOutstandingLedgerCount)} ledger outstanding
+                    </div>
+                    <div className="kpi-formula">
+                      Formula: Ledger Matched / Total Ledger Records × 100
+                    </div>
+                  </div>
+                  <div className="kpi-legend-vertical">
+                    <div className="legend-item-vertical excellent">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">≥95%</span>
+                    </div>
+                    <div className="legend-item-vertical good">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">85-94%</span>
+                    </div>
+                    <div className="legend-item-vertical medium">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">75-84%</span>
+                    </div>
+                    <div className="legend-item-vertical critical">
+                      <span className="legend-dot-vertical"></span>
+                      <span className="legend-label">&lt;75%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -756,12 +880,16 @@ export default function ReconciliationCalculator() {
                   <h3>Annual Benefits</h3>
                   <div className="roi-items">
                     <div className="roi-item">
-                      <span>Cash Recovery (12 months)</span>
-                      <span className="roi-amount">{formatCurrency(results.kpis.annualRecovery)}</span>
+                      <span>Cash Recovery (Unmatched Improvement)</span>
+                      <span className="roi-amount">{formatCurrency(results.kpis.annualCashRecovery)}</span>
                     </div>
                     <div className="roi-item">
-                      <span>Staff Cost Savings (70%)</span>
+                      <span>Staff Cost Savings (70% reduction)</span>
                       <span className="roi-amount">{formatCurrency(results.kpis.staffSavings)}</span>
+                    </div>
+                    <div className="roi-item">
+                      <span>Audit Efficiency Savings</span>
+                      <span className="roi-amount">{formatCurrency(results.kpis.auditSavings)}</span>
                     </div>
                     <div className="roi-item roi-total">
                       <span>Total Annual Benefit</span>
@@ -775,11 +903,11 @@ export default function ReconciliationCalculator() {
                   <div className="roi-items">
                     <div className="roi-item">
                       <span>Automation Cost (Est.)</span>
-                      <span>{formatCurrency(150000000)}</span>
+                      <span>{formatCurrency(results.kpis.automationCost)}</span>
                     </div>
                     <div className="roi-item">
                       <span>Net Annual Benefit</span>
-                      <span className="roi-amount">{formatCurrency(results.kpis.totalAnnualBenefit - 150000000)}</span>
+                      <span className="roi-amount">{formatCurrency(results.kpis.netBenefit)}</span>
                     </div>
                     <div className="roi-item roi-total">
                       <span>ROI</span>
@@ -792,7 +920,7 @@ export default function ReconciliationCalculator() {
               <div className="roi-summary">
                 <p className="roi-summary-title">Executive Summary:</p>
                 <p className="roi-summary-text">
-                  For every ₦1 invested in reconciliation automation, you recover <strong>₦{(results.kpis.ROI / 100 + 1).toFixed(1)}</strong> in financial assurance, speed, and risk prevention.
+                  For every ₦1 invested in reconciliation automation, you recover <strong>₦{(results.kpis.ROI / 100 + 1).toFixed(1)}</strong> in financial assurance, speed, and risk prevention. Based on industry benchmarks: 70% staff time savings (from 5 FTEs to 1.5 FTEs), improved unmatched ratio from 1% to current level, and reduced audit queries.
                 </p>
               </div>
             </div>

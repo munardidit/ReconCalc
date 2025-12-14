@@ -99,6 +99,7 @@
   transition: all 0.2s;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  max-width: 400px;
 }
 
 .input-group input::placeholder {
@@ -202,7 +203,7 @@
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 2rem;
   background: #f5f5f5;
-  border: 1px solid #e3f2fd;
+  border: 1px solid #178cdf;
   border-radius: 0.75rem;
   padding: 1.5rem;
 }
@@ -210,6 +211,8 @@
 .data-column {
   display: flex;
   flex-direction: column;
+  position: relative;
+  left: 4rem;
 }
 
 .column-title {
@@ -220,10 +223,12 @@
   text-align: center;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid #1976d2;
+  max-width: 400px;
 }
 
 .data-group {
   margin-bottom: 1.5rem;
+  align-items: center;
 }
 
 .data-group:last-child {
@@ -332,6 +337,17 @@
 .ftis-header h2 {
   font-size: 1.5rem;
   font-weight: 700;
+}
+.ftis-content-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+}
+
+.ftis-main {
+  flex: 1;
+  text-align: center;
 }
 
 /* KPI Legends */
@@ -455,42 +471,61 @@
   border-color: #f44336;
 }
 
-/* Mini Legend for KPI Cards */
-.kpi-legend-mini {
+/* Vertical Legend for KPI Cards */
+.kpi-content-row {
   display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-bottom: 0.5rem;
-  padding: 0.25rem 0;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.legend-dot-mini {
-  width: 8px;
-  height: 8px;
+.kpi-main {
+  flex: 1;
+}
+
+.kpi-legend-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 0.5rem;
+  align-self: flex-start;
+  min-width: 80px;
+}
+
+.legend-item-vertical {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+}
+
+.legend-dot-vertical {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.legend-dot-mini.excellent {
+.legend-item-vertical.excellent .legend-dot-vertical {
   background-color: #4caf50;
 }
 
-.legend-dot-mini.good {
+.legend-item-vertical.good .legend-dot-vertical {
   background-color: #03a9f4;
 }
 
-.legend-dot-mini.medium {
+.legend-item-vertical.medium .legend-dot-vertical {
   background-color: #ff9800;
 }
 
-.legend-dot-mini.critical {
+.legend-item-vertical.critical .legend-dot-vertical {
   background-color: #f44336;
 }
 
-.legend-text-mini {
-  font-size: 0.6rem;
-  color: #757575;
-  margin-left: 0.25rem;
+.legend-label {
+  color: #424242;
+  font-weight: 500;
 }
 
 .kpi-header {
